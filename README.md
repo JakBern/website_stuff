@@ -6,5 +6,5 @@ This repo is a temporary collection of pages which will be used for my personal 
 
 ## Various Pages
 - [Landing page](/home.html)
-- [Interactive JavaScript animations using the HTML5 canvas](/javascript_anim_index.html)
+- [Interactive JavaScript animations using the HTML5 canvas](/anim_page_template.html)
 - [ASCII Map Editor](/map_viewer.html)
