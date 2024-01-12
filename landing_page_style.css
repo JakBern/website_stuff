@@ -1,0 +1,142 @@
+/*
+Colors in palette:
+    - #D09A8A
+        (Rosy brown (beige))
+        -- Background (for table)
+    - #4E564D
+        (Ebony (gray))
+        -- Text
+    - #6A252B
+        (Wine (dark red))
+        -- Link text (unclicked)
+    - #477246
+        (Fern green)
+        -- Link text (clicked)
+    -#D9D375
+        (Citron (yellowish))
+*/
+
+body.bg {
+    background-color: rgb(107, 107, 70);
+}
+
+.body_text {
+    color: #262b26;
+    font-size: 1.1em;
+}
+
+.body_text_frame {
+    margin: auto;
+    margin-top: 1em;
+    background-color: #D9D375;
+    text-align: justify;
+    border: solid #7c1e02;
+    border-width: 0.2em;
+    width: 18cm;
+    inline-size: 15.5cm;
+    padding: 0.5cm;
+    overflow-wrap: break-word;
+    box-shadow: 0.7em 0.5em rgb(95, 95, 62);
+}
+
+.body_text_header {
+    color: #151815;
+    font-size: 1.3em;
+    font-weight: bolder;
+    width: auto;
+    padding-left: 0.3em;
+    padding-right: 0.3em;
+    padding-bottom: 0.3em;
+    margin: auto;
+    margin-bottom: 0.4em;
+    text-align: center;
+    border-bottom: #151815 0.15em dotted;
+}
+
+.title_text {
+    text-align: center;
+    letter-spacing: 0.25em;
+    color: #4E564D;
+    font-size: 3em;
+}
+
+.subtitle_text {
+    text-align: center;
+    color: #565f55;
+    font-size: 2em;
+}
+
+.normal_link:link {
+    color: #6A252B;
+}
+
+.normal_link:visited {
+    color: #477246;
+}
+
+@keyframes normal_link_hover {
+    0% {background-position: 0% 0%;}
+    50% {background-position: 50% 0%;}
+    100% {background-position: 100% 0%;}
+}
+
+@-webkit-keyframes normal_link_hover {
+    0% {background-position: 0% 0%;}
+    50% {background-position: 50% 0%;}
+    100% {background-position: 100% 0%;}
+}
+
+.normal_link:hover {
+    background: -webkit-linear-gradient(0deg,
+                                        rgb(224, 75, 75), 
+                                        rgb(245, 245, 3),  
+                                        rgb(101, 191, 207), 
+                                        rgb(236, 236, 94),
+                                        rgb(96, 206, 63),
+                                        rgb(79, 99, 187), 
+                                        rgb(224, 75, 75), 
+                                        rgb(245, 245, 3),  
+                                        rgb(101, 191, 207));
+    background-size: 450% 100%;
+    animation: normal_link_hover;
+    animation-duration: 1s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+}
+
+.table_base {
+    margin: auto;
+    width: 14cm;
+    margin-top: 1cm;
+    border-spacing: 0px;
+    box-shadow: 0.7em 0.5em rgb(95, 95, 62);
+}
+
+td.table_title {
+    background-color: #D9D375;
+    text-align: center;
+    line-height: 2.5em;
+    padding-top: 0.7em;
+    padding-bottom: 0.7em;
+    border: solid;
+    border-color: #7c1e02;
+    border-width: 0.5em;
+}
+
+
+td.table_links {
+    text-align: center;
+    background-color: #D9D375;
+    display: flex;
+    justify-content: space-evenly;
+    border-bottom: solid #7c1e02;
+    border-bottom-width: 0.2em;
+}
+
+
+
+

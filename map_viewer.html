@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+
+<head>
+    <title>Map Viewer/Creator</title>
+    <link rel="stylesheet" href="map_viewer.css">
+</head>
+
+<body>
+    <div class="toolbar_left">
+        <div class="toolbar_label">Tools</div>
+        <div class="tool_button_left tool_button_left_selected" id="tool_button_select">Select <span class="tool_button_left_key">[s]</span></div>
+        <div class="tool_button_left" id="tool_button_pencil">Pencil <span class="tool_button_left_key">[p]</span></div>
+        <div class="tool_button_left" id="tool_button_brush">Brush <span class="tool_button_left_key">[b]</span></div>
+        <div class="tool_button_left" id="tool_button_rect">Rect <span class="tool_button_left_key">[r]</span></div>
+        <div class="tool_button_left" id="tool_button_circle">Circle <span class="tool_button_left_key">[c]</span></div>
+        <div class="tool_button_left" id="tool_button_line">Line <span class="tool_button_left_key">[l]</span></div>
+        <div class="tool_button_left" id="tool_button_curve">Curve <span class="tool_button_left_key">[v]</span></div>
+        <div class="tool_button_left" id="tool_button_fill">Fill <span class="tool_button_left_key">[f]</span></div>
+        <div class="tool_button_left" id="tool_button_zoom">Zoom <span class="tool_button_left_key">[z]</span></div>
+        <div class="tool_button_left" id="tool_button_color_dropper">Color Dropper <span class="tool_button_left_key">[q]</span></div>
+        <div class="tool_button_left" id="tool_button_char_dropper">Char Dropper <span class="tool_button_left_key">[w]</span></div>
+        <div class="tool_button_left" id="tool_button_tile_dropper">Tile Dropper <span class="tool_button_left_key">[e]</span></div>
+
+        <div class="toolbar_label">Currently Selected</div>
+        <div class="toolbar_label sub_label">Using</div>
+            <div class="value_cells_container">
+                <div id="UsedBGColor" class="used_value_cell">
+                    <div class="used_value_cell_contents">
+                        bg<br>
+                        <span class="used_value_cell_color_text">
+                            #ffffff
+                        </span>
+                    </div>
+                </div>
+                <div id="UsedCharColor" class="used_value_cell">
+                    <div class="used_value_cell_contents">
+                        ch<br>
+                        <span class="used_value_cell_color_text">
+                            #000000
+                        </span>
+                    </div>
+                </div>
+                <div class="used_value_cell">
+                    <div id="UsedChar" class="used_value_cell_contents_char">
+                        ch
+                    </div>
+                </div>
+            </div>
+        <div class="toolbar_label sub_label">Selected Tile</div>
+            <div class="value_cells_container">
+                <div id="SelectedBGColor" class="used_value_cell">
+                    <div class="used_value_cell_contents">
+                        bg<br>
+                        <span class="used_value_cell_color_text">
+                            #ffffff
+                        </span>
+                    </div>
+                </div>
+                <div id="SelectedCharColor" class="used_value_cell">
+                    <div class="used_value_cell_contents">
+                        ch<br>
+                        <span class="used_value_cell_color_text">
+                            #000000
+                        </span>
+                    </div>
+                </div>
+                <div class="used_value_cell">
+                    <div id="SelectedChar" class="used_value_cell_contents_char">
+                        ch
+                    </div>
+                </div>
+            </div>
+
+        <div class="toolbar_label">Tile Set</div>
+        <div class="tileset_input_container">            
+            <button class="tileset_input_button" id="load_tileset_button">Load tileset</button>
+            <input type="file" style="display: none;" id="load_tileset_internal"/>
+            <input class="tileset_search" id="tileset_search_bar" placeholder="Search for a tile..."></input>
+        </div>
+        <div class = "tileset_container" id="tileset_container_id">
+        </div>
+    </div>
+    <div class="toolbar_right">
+        <div class="toolbar_label">Map Zoom</div>
+        <div class="toolbar_label">Tool Options</div>
+        <div class="toolbar_label">Color Picker</div>
+        <div class="color_picker_container">
+            <button id="set_color_button" class="color_picker_style">Set Color</button>
+            <input id="set_color_text_input" class="color_picker_style" placeholder="Enter a hexcode like 'ffffff'..."/>
+            <input type="color" id="color_picker">
+        </div>
+        
+        <div class="toolbar_label">Color Palette</div>
+        <div class="color_palette_label_container">
+            <div class="color_palette_label" id="color_palette_button_red" style="background-color: red;">
+                Red-Cyan
+            </div>
+            <div class="color_palette_label" id="color_palette_button_orange" style="background-color: orange;">
+                Orange-SkyBlue
+            </div>
+            <div class="color_palette_label" id="color_palette_button_yellow" style="background-color: yellow;">
+                Yellow-Blue
+            </div>
+            <div class="color_palette_label" id="color_palette_button_green" style="background-color: green;">
+                Green-Violet
+            </div>
+            <div class="color_palette_label" id="color_palette_button_blue" style="background-color: #009b9b;">
+                Cyan-Pink
+            </div>
+            <div class="color_palette_label" id="color_palette_button_purple" style="background-color: purple;">
+                Purple-Green
+            </div>
+            <div class="color_palette_label" id="color_palette_button_brown" style="background-color: rgb(102, 51, 0);">
+                Brown-Pink
+            </div>
+            <div class="color_palette_label" id="color_palette_button_grey" style="background-color: grey;">
+                Black-White
+            </div>
+            <div class="color_palette_label" id="color_palette_button_custom" style="background-color: paleturquoise;">
+                Custom
+            </div>            
+        </div>
+        <div class="color_palette_container" id="color_palette_container">
+        </div>
+        <div class="load_save_buttons_container" id="palette_load_save_button_container">
+            <input type="submit" id="load_palette_button" class="load_save_button" value="Load Palette" />
+            <input type="file" accept="tsv" id="load_palette_button_internal" style="display: none;"></input>
+            <input type="submit" id="save_palette_button" value="Save Palette" class="load_save_button"></input>
+        </div>
+    </div>
+    <table id="game_frame" class="game_frame_style"></table>
+    <script src="map_viewer.js"></script>
+</body>

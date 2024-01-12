@@ -1,0 +1,66 @@
+:root {
+    --cell_size: 8px;
+    --bg_color: white;
+}
+
+body {
+    background-color: rgb(79, 79, 79);
+}
+
+body {
+    margin: 0.5% !important;
+}
+
+.game_frame_style {
+    border: black solid;
+    border-width: 0.5%;
+    background-color: var(--bg_color);
+    table-layout: fixed;
+    /* width: fit-content; */
+    margin: auto;
+    font-size: 6px;
+    border-spacing:0px;
+    border-collapse: collapse;
+    font-family: monospace;
+    user-select: none;
+    vertical-align: middle;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.game_display_cell {
+    /* float:left; */
+    max-height: var(--cell_size);
+    max-width: var(--cell_size);
+    height: var(--cell_size);
+    width: var(--cell_size);
+    line-height: var(--cell_size);
+    vertical-align: middle;
+    text-align: center;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+}
+
+.game_multicell {
+    overflow: visible;
+}
+
+.game_multicell_art {
+    white-space: pre;
+    word-spacing: normal;
+}
+
+.game_multicell_text {
+}
+
+.game_display_cell_hidden {
+    display: none;
+    height: 0px;
+    width: 0px;
+}
+
+td.game_display_cell:hover {
+    background-color: grey;
+}
