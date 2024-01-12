@@ -28,3 +28,9 @@ Custom swatches can be set when using the custom palette by ctrl + clicking on a
 - Complete the rest of the tools
 - Add saving and loading maps
 - Add more indications for hotkeys/instructions to the program's UI
+
+### Game
+Currently just a mockup for an online roguelike.
+
+#### Contact
+Just a mockup. Nothing different from the landing page.
