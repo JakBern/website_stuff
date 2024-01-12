@@ -27,4 +27,4 @@ Custom swatches can be set when using the custom palette by ctrl + clicking on a
 #### Future Plans
 - Complete the rest of the tools
 - Add saving and loading maps
-- Add more indications for hotkeys/instructions to the program's UI.
+- Add more indications for hotkeys/instructions to the program's UI
