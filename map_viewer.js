@@ -361,19 +361,19 @@ function set_frame_size() {
 
 function get_tile_coords_closest_to_point(x, y) {
     let point = new Vec2(x, y);
-    let closest_vec = new Vec2(0, 0);
-    let best_dist = Infinity;
-    for (let i = 0; i < canvas.display_arr.length; i++) {
-        let cur_row = canvas.display_arr[i];
-        for (let j = 0; j < canvas.display_arr.length; j++) {
-            let cur_rect = cur_row[j].getBoundingClientRect();
-            let dist = point.sqrdDist(cur_rect);
-            if (dist < best_dist) {
-                closest_vec = new Vec2(j, i);
-                best_dist = dist;
-            }
-        }
-    }
+    let top_left = canvas.display_arr[0][0].getBoundingClientRect();
+    top_left = new Vec2(top_left.x, top_left.y);
+    let bottom_right = canvas.display_arr[canvas_rows - 1][canvas_cols - 1].getBoundingClientRect();
+    bottom_right = new Vec2(bottom_right.right, bottom_right.bottom);
+    point.x = clamp(point.x, top_left.x, bottom_right.x);
+    point.y = clamp(point.y, top_left.y, bottom_right.y);
+    let span_x = bottom_right.x - top_left.x;
+    let span_y = bottom_right.y - top_left.y;
+    let cursor_span_x = point.x - top_left.x;
+    let cursor_span_y = point.y - top_left.y;
+    let closest_x = Math.ceil((cursor_span_x / span_x) * canvas_rows) - 1;
+    let closest_y = Math.ceil((cursor_span_y / span_y) * canvas_cols) - 1;
+    let closest_vec = new Vec2(closest_x, closest_y);
     return closest_vec;
 }
 
