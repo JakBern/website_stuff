@@ -138,7 +138,7 @@ const using = {
     color_cell: using_color_cell.none,
     tool: 0,
     char: "a",
-    tile: new Tile("a"),
+    tile: new Tile("a", "a", "rgb(255, 255, 255)", "rgb(0, 0, 0)"),
     char_color: "rgb(0, 0, 0)",
     bg_color: "rgb(255, 255, 255)",
     bg_color_cell: document.getElementById("UsedBGColor"),
@@ -155,6 +155,20 @@ const selected = {
     char_color_cell: document.getElementById("SelectedCharColor"),
     char_cell: document.getElementById("SelectedChar")
 };
+
+const tool_settings = {
+    brush_thickness: 1,
+    rect_fill: false,
+    rect_thickness: 1,
+    circle_fill: false,
+    circle_thickness: 1,
+    line_thickness: 1,
+    curve_thickness: 1,
+    fill_eightway: false,
+    zoom_percent: 100,
+    zoom_pan_x: 0,
+    zoom_pan_y: 0,
+}
 
 // ===== OBJECTS =====
 
@@ -225,8 +239,11 @@ const undo_stack = [];
 const redo_stack = [];
 const temp_draw_buff = [];
 const stroke_buff = [];
+const anchor_points = [];
 let performing_stroke = false;
 let left_canvas_while_performing_stroke = false;
+
+let tracking_function = null;
 
 // ===== GLOBALS =====
 
@@ -371,8 +388,10 @@ function get_tile_coords_closest_to_point(x, y) {
     let span_y = bottom_right.y - top_left.y;
     let cursor_span_x = point.x - top_left.x;
     let cursor_span_y = point.y - top_left.y;
-    let closest_x = Math.ceil((cursor_span_x / span_x) * canvas_rows) - 1;
-    let closest_y = Math.ceil((cursor_span_y / span_y) * canvas_cols) - 1;
+    let closest_x = Math.floor((cursor_span_x / span_x) * canvas_rows);
+    let closest_y = Math.floor((cursor_span_y / span_y) * canvas_cols);
+    closest_x = (closest_x == canvas_cols) ? closest_x - 1 : closest_x;
+    closest_y = (closest_y == canvas_rows) ? closest_y - 1 : closest_y;
     let closest_vec = new Vec2(closest_x, closest_y);
     return closest_vec;
 }
@@ -421,8 +440,8 @@ function perform_redo() {
 
 function canvas_draw_temp(x, y, char, bg_color, char_color) {
     let from = new DisplayFragment(canvas.display_arr[y][x].innerHTML,
-            canvas.display_arr[y][x].backgroundColor,
-            canvas.display_arr[y][x].color );
+            canvas.display_arr[y][x].style.backgroundColor,
+            canvas.display_arr[y][x].style.color );
     let to = new DisplayFragment(char, bg_color, char_color);
     let action = new HistoryFragment(x, y, from, to);
     canvas.display_arr[y][x].innerHTML = char;
@@ -431,8 +450,14 @@ function canvas_draw_temp(x, y, char, bg_color, char_color) {
     temp_draw_buff.push(action);
 }
 
+function canvas_draw_temp_from_vec_arr_with_using(arr) {
+    for (let i = 0; i < arr.length; i++) {
+        canvas_draw_temp(arr[i].x, arr[i].y, using.char, using.bg_color, using.char_color);
+    }
+}
+
 function remove_temp_drawing() {
-    for (let i = 0; i < temp_draw_buff.length; i++) {
+    for (let i = temp_draw_buff.length - 1; i >= 0; i--) {
         canvas_draw_display(temp_draw_buff[i].x, 
             temp_draw_buff[i].y, 
             temp_draw_buff[i].from.char, 
@@ -478,6 +503,9 @@ function stroke_from_arr(arr){
 
 function end_stroke() {
     performing_stroke = false;
+    if (stroke_buff.length == 0) {
+        return;
+    }
     let stroke_buff_copy = stroke_buff.map((x) => x);
     if (undo_stack.length <= 48) {
         undo_stack.push(stroke_buff_copy);
@@ -530,49 +558,108 @@ function span_fill_is_inside(x, y, base_tile) {
 }
 
 function span_fill(x, y, base_tile) {
-    if (base_tile == using.tile) {
+    if (tiles_equal(base_tile, using.tile)) {
+        return;
+    }
+    if (!span_fill_is_inside(x, y, base_tile)) {
         return;
     }
     begin_stroke();
     const seed_stack = [];
-    if (!span_fill_is_inside(x, y, base_tile)) return;
     seed_stack.push([x, x, y, 1]);
-    seed_stack.push([x, x, y - 1, -1]);
+    seed_stack.push([x, x, y + 1, -1]);
+    let skip = false;
+    let start;
+    // seed_stack.push([x, x + 1, y, 1]);
+    // seed_stack.push([x, x + 1, y - 1, -1]);
     while (seed_stack.length > 0) {
+        skip = false;
         let cur = seed_stack.pop();
         let x1 = cur[0];
         let x2 = cur[1];
-        let y = cur[2];
         let dy = cur[3];
+        let y = cur[2] + dy;
         let x = x1;
-        if (span_fill_is_inside(x, y, base_tile)) {
-            while (span_fill_is_inside(x - 1, y, base_tile)) {
-                add_to_stroke(x, y);
-                x = x - 1;
-            }
-            if (x < x1) {
-                add_to_stroke(x, y);
-                seed_stack.push([x, x1 - 1, y - dy, -dy]);
-            }
+        while (span_fill_is_inside(x, y, base_tile)) {
+            add_to_stroke(x, y);
+            x = x - 1;
         }
-        while (x1 <= x2) {
-            while (span_fill_is_inside(x1, y, base_tile)) {
-                add_to_stroke(x1, y);
-                x1 = x1 + 1;
-            }
-            if (x1 > x) {
-                seed_stack.push([x, x1 - 1, y + dy, dy]);
-            }
-            if (x1 - 1 >  x2) {
-                seed_stack.push([x2 + 1, x1 - 1, y - dy, -dy]);
-            }
-            x1 = x1 + 1;
-            while (x1 < x2 && !span_fill_is_inside(x1, y, base_tile)) {
-                x1 = x1 + 1;
-            }
-            x = x1;
+        if (x >= x1) {
+            skip = true;
         }
+        if (!skip) {
+            start = x + 1;
+            if (start < x1) {
+                seed_stack.push([start, x1 - 1, y, -dy]);
+            }
+            x = x1 + 1;
+        }
+        do {
+            if (!skip) {
+                while (span_fill_is_inside(x, y, base_tile)) {
+                    add_to_stroke(x, y);
+                    x = x + 1;
+                }
+                seed_stack.push([start, x - 1, y, dy]);
+                if (x > x2 + 1) {
+                    seed_stack.push([x2 + 1, x - 1, y, -dy]);
+                }
+            }
+            skip = false;
+            x = x + 1;
+            while (x <= x2 && !span_fill_is_inside(x, y, base_tile)) {
+                x = x + 1;
+            }
+            start = x;
+        } while (x <= x2);
     }
+}
+
+function make_box_from_points(x0, y0, x1, y1) {
+    let box_arr = [];
+    let dx = Math.sign(x1 - x0);
+    let dy = Math.sign(y1 - y0);
+    box_arr.push(new Vec2(x0, y0));
+    box_arr.push(new Vec2(x1, y1));
+    for (let i = x0 + dx; i != x1 + dx; i += dx) {
+        box_arr.push(new Vec2(i, y0));
+        box_arr.push(new Vec2(i, y1));
+    }
+    for (let i = y0 + dy; i != y1 + dy; i += dy) {
+        box_arr.push(new Vec2(x0, i));
+        box_arr.push(new Vec2(x1, i));
+    }
+    return box_arr;
+}
+
+function make_circle_from_points(x0, y0, x1, y1) {
+    let xm = Math.floor((x0 + x1) / 2);
+    let ym = Math.floor((y0 + y1) / 2);
+    let r = Math.abs(x0 - xm);
+    let err = 2 - 2*r;
+    let x = -r;
+    let y = 0;
+    let circle_arr = [];
+    do {
+        circle_arr.push(new Vec2(xm-x, ym+y)); 
+        circle_arr.push(new Vec2(xm-y, ym-x)); /*  II. Quadrant */
+        circle_arr.push(new Vec2(xm+x, ym-y)); /* III. Quadrant */
+        circle_arr.push(new Vec2(xm+y, ym+x)); /*  IV. Quadrant */
+        r = err;
+        if (r <= y) {
+            y += 1;
+            err += y*2+1;
+        }
+        if (r > x || err > y) {
+            x += 1;
+            err += x*2+1;
+        }
+    } while (x < 0);
+    return circle_arr;
+}
+
+function make_ellipse_from_points(x0, y0, x1, y1) {
+    
 }
 
 // ===== LINE_AND_SHAPE_FUNCTIONS =====
@@ -692,69 +779,214 @@ function set_using_tool(tool_code) {
 
 // ===== TOOL_CLICK_FUNCTIONS =====
 
-    function select_tool_click(i, j, e) {
-        if (e.type != "mousedown") {
-            return;
-        }
-        set_selected_tile_info(canvas.tile_arr[i][j], canvas.display_arr[i][j]);
+function select_tool_click(i, j, e) {
+    if (e.type != "mousedown") {
+        return;
     }
+    set_selected_tile_info(canvas.tile_arr[i][j], canvas.display_arr[i][j]);
+}
 
-    function pencil_tool_click(i, j, e) {
-        if (e.type == "mousedown" && !performing_stroke) {
+function pencil_tool_click(i, j, e) {
+    if (e.type == "mousedown" && !performing_stroke) {
+        begin_stroke();
+        add_to_stroke(j, i);
+        return;
+    }
+    if (e.type == "mouseover" && performing_stroke) {
+        if (left_canvas_while_performing_stroke) {
             begin_stroke();
-            add_to_stroke(j, i);
+            left_canvas_while_performing_stroke = false;
         }
-        if (e.type == "mouseover" && performing_stroke) {
-            if (stroke_buff.length != 0 && !is_connected(j, i, stroke_buff[stroke_buff.length -1].x, stroke_buff[stroke_buff.length -1].y));
+        if (stroke_buff.length != 0) {
+            if (!is_connected(j, i, stroke_buff[stroke_buff.length -1].x, stroke_buff[stroke_buff.length -1].y));
             {
                 stroke_from_arr(make_line_from_points(j, i, stroke_buff[stroke_buff.length -1].x, stroke_buff[stroke_buff.length -1].y));
             }
-            add_to_stroke(j, i);
+        }
+        add_to_stroke(j, i);
+        return;
+    }
+}
+
+function brush_tool_click(i, j, e) {
+    
+}
+
+function rect_tool_click(i, j, e) {
+    if (e.type == "mousedown") {
+        anchor_points.length = 0;
+        anchor_points.push(new Vec2(j, i));
+        canvas_draw_temp_from_vec_arr_with_using(anchor_points);
+        begin_stroke();
+    }
+    if (e.type == "mouseover" && performing_stroke) {
+        remove_temp_drawing();
+        let box= make_box_from_points(anchor_points[0].x, anchor_points[0].y, j, i);
+        canvas_draw_temp_from_vec_arr_with_using(box);
+    }
+    if (e.type == "mouseup" && performing_stroke) {
+        remove_temp_drawing();
+        stroke_from_arr(make_box_from_points(anchor_points[0].x, anchor_points[0].y, j, i));
+        end_stroke();
+        anchor_points.length = 0;
+    }
+}
+
+function circle_tool_click(i, j, e) {
+    if (e.type == "mousedown") {
+        anchor_points.length = 0;
+        anchor_points.push(new Vec2(j, i));
+        canvas_draw_temp_from_vec_arr_with_using(anchor_points);
+        begin_stroke();
+    }
+    if (e.type == "mouseover" && performing_stroke) {
+        remove_temp_drawing();
+        let x_len = j - anchor_points[0].x;
+        let y_len = i - anchor_points[0].y;
+        let bounding = new Vec2(j, i);
+        if (Math.abs(x_len) != Math.abs(y_len)) {
+            if (Math.abs(x_len) < Math.abs(y_len)) {
+                bounding.y = anchor_points[0].y + (Math.abs(x_len) * Math.sign(y_len));
+            }
+            else {
+                bounding.x = anchor_points[0].x + (Math.abs(y_len) * Math.sign(x_len));
+            }
+        }
+        let circ = make_circle_from_points(anchor_points[0].x, anchor_points[0].y, bounding.x, bounding.y);
+        canvas_draw_temp_from_vec_arr_with_using(circ);
+    }
+    if (e.type == "mouseup" && performing_stroke) {
+        remove_temp_drawing();
+        let x_len = j - anchor_points[0].x;
+        let y_len = i - anchor_points[0].y;
+        let bounding = new Vec2(j, i);
+        if (Math.abs(x_len) != Math.abs(y_len)) {
+            if (Math.abs(x_len) < Math.abs(y_len)) {
+                bounding.y = anchor_points[0].y + (Math.abs(x_len) * Math.sign(y_len));
+            }
+            else {
+                bounding.x = anchor_points[0].x + (Math.abs(y_len) * Math.sign(x_len));
+            }
+        }
+        let circ = make_circle_from_points(anchor_points[0].x, anchor_points[0].y, bounding.x, bounding.y);
+        stroke_from_arr(circ);
+        end_stroke();
+        anchor_points.length = 0;
+    }
+}
+
+function line_tool_click(i, j, e) {
+    if (e.type == "mousedown") {
+        anchor_points.length = 0;
+        anchor_points.push(new Vec2(j, i));
+        canvas_draw_temp_from_vec_arr_with_using(anchor_points);
+        begin_stroke();
+    }
+    if (e.type == "mouseover" && performing_stroke) {
+        remove_temp_drawing();
+        let arr = make_line_from_points(anchor_points[0].x, anchor_points[0].y, j, i);
+        canvas_draw_temp_from_vec_arr_with_using(arr);
+    }
+    if (e.type == "mouseup" && performing_stroke) {
+        remove_temp_drawing();
+        stroke_from_arr(make_line_from_points(anchor_points[0].x, anchor_points[0].y, j, i));
+        end_stroke();
+        anchor_points.length = 0;
+    }
+    
+}
+
+function line_tool_track_out_of_canvas() {
+    if (performing_stroke && left_canvas_while_performing_stroke) {
+        document.onmousemove  = (e) => {
+            let coords = get_tile_coords_closest_to_point(e.x, e.y);
+            remove_temp_drawing();
+            let arr = make_line_from_points(anchor_points[0].x, anchor_points[0].y, coords.x, coords.y);
+            canvas_draw_temp_from_vec_arr_with_using(arr);
         }
     }
+}
 
-    function brush_tool_click(i, j, e) {
-        
+function curve_tool_click(i, j, e) {
+    
+}
+
+function fill_tool_click(i, j, e) {
+    if (e.type == "mousedown") {
+        span_fill(j, i, get_canvas_tile(j, i));
+        end_stroke();
     }
+}
 
-    function rect_tool_click(i, j, e) {
-        
+function zoom_tool_click(i, j, e) {
+    
+}
+
+function color_dropper_tool_click(i, j, e) {
+    if (e.type == "mousedown") {
+        if (e.ctrlKey) {
+            let color = getComputedStyle(canvas.display_arr[i][j]).color;
+            using.char_color = color;
+            using.char_color_cell.style.backgroundColor = using.char_color;
+            using.tile = clone_tile(using.tile);
+            using.tile.tint.char_color = color;
+            using.char_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.char_color);
+            return;
+        }
+        let color = getComputedStyle(canvas.display_arr[i][j]).backgroundColor;
+        using.bg_color = color;
+        using.bg_color_cell.style.backgroundColor = using.bg_color;
+        using.tile = clone_tile(using.tile);
+        using.tile.tint.bg_color = color;
+        using.bg_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.bg_color);
+        return;
     }
+}
 
-    function circle_tool_click(i, j, e) {
-        
+function char_dropper_tool_click(i, j, e) {
+    if (e.type == "mousedown") {
+        using.char_cell.innerHTML = using.char = canvas.tile_arr[j][i].char;
+        using.tile = clone_tile(using.tile);
+        using.tile.char = using.char;
     }
+}
 
-    function line_tool_click(i, j, e) {
-        
+function tile_dropper_tool_click(i, j, e) {
+    if (e.type == "mousedown") {
+        using.tile = canvas.tile_arr[i][j];
+        using.char_cell.innerHTML = using.char = using.tile.char;
+        using.bg_color = (using.tile.tint.bg_color === null) ? using.tile.bg_color : using.tile.tint.bg_color;
+        using.char_color = (using.tile.tint.char_color === null) ? using.tile.char_color : using.tile.tint.char_color;
+        using.bg_color_cell.style.backgroundColor = using.bg_color;
+        using.char_color_cell.style.backgroundColor = using.char_color;
+        using.char_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.char_color);
+        using.bg_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.bg_color);
     }
+}
 
-    function curve_tool_click(i, j, e) {
-        
-    }
-
-    function fill_tool_click(i, j, e) {
-        if (e.type == "mousedown") {
-            span_fill(j, i, get_canvas_tile(j, i));
-            end_stroke();
+function handle_global_mouseup(e) {
+    if (performing_stroke) {
+        switch (using.tool) {
+            case (tool.brush): 
+            case (tool.pencil):
+                left_canvas_while_performing_stroke = false;
+                end_stroke();
+                break;
+            case (tool.line)  :
+                clearInterval(tracking_function);
+                tracking_function = null;
+                document.onmousemove = null;
+                left_canvas_while_performing_stroke = false;
+                remove_temp_drawing();
+                let vec = get_tile_coords_closest_to_point(e.x, e.y);
+                stroke_from_arr(make_line_from_points(anchor_points[0].x, anchor_points[0].y, vec.x, vec.y));
+                end_stroke();
+                anchor_points.length = 0;
+                break;
         }
     }
+}
 
-    function zoom_tool_click(i, j, e) {
-        
-    }
-
-    function color_dropper_tool_click(i, j, e) {
-        
-    }
-
-    function char_dropper_tool_click(i, j, e) {
-        
-    }
-
-    function tile_dropper_tool_click(i, j, e) {
-        
-    }
 
 // ===== TOOL_CLICK_FUNCTIONS =====
 
@@ -1117,7 +1349,6 @@ function download_current_palette() {
 
 function handle_tileset_swatch_click(tile) {
     using.char_cell.innerHTML = using.char = tile.char;
-    using.char = tile.char;
     using.tile = tile;
 
     if (tile.bg_color !== null) {
@@ -1246,7 +1477,7 @@ set_frame_size();
 // ===== INIT_ARRAYS =====
 
 for (let i = 0; i < canvas_rows; i++) {
-    let base_tile = new Tile(" ", "Space");
+    let base_tile = new Tile(" ", "Space", "rgb(255, 255, 255)", "rgb(0, 0, 0)");
     let cur_row = document.createElement("tr");
     frame.appendChild(cur_row);
     let display_arr_row = [];
@@ -1430,32 +1661,49 @@ document.addEventListener("keydown",
 
 document.getElementById("game_frame").addEventListener("mouseenter",
                     (e) => {
-                        if (left_canvas_while_performing_stroke && (using.tool == tool.pencil || using.tool == tool.brush)) {
-                            left_canvas_while_performing_stroke = false;
-                            let vec = get_tile_coords_closest_to_point(e.clientX, e.clientY);
-                            begin_stroke();
-                            add_to_stroke(vec.x, vec.y);
+                        if (left_canvas_while_performing_stroke && performing_stroke) {
+                            let vec = null;
+                            switch (using.tool) {
+                                case (tool.pencil):
+                                case (tool.brush) :
+                                    break;
+                                case (tool.line)  :
+                                    clearInterval(tracking_function);
+                                    tracking_function = null;
+                                    document.onmousemove = null;
+                                    left_canvas_while_performing_stroke = false;
+                                    break;
+                            }
                         }
                     });
 
 document.getElementById("game_frame").addEventListener("mouseleave",
                     (e) => {
-                        if (performing_stroke && (using.tool == tool.pencil || using.tool == tool.brush)) {
-                            let vec = get_tile_coords_closest_to_point(e.clientX, e.clientY);
-                            let last_stroke = stroke_buff[stroke_buff.length - 1];
-                            let line_arr = make_line_from_points(last_stroke.x, last_stroke.y, vec.x, vec.y);
-                            stroke_from_arr(line_arr);
-                            left_canvas_while_performing_stroke = true;
-                            end_stroke();
+                        if (performing_stroke) {
+                            switch (using.tool) {
+                                case (tool.pencil):
+                                case (tool.brush) :
+                                    let vec = get_tile_coords_closest_to_point(e.clientX, e.clientY);
+                                    let last_stroke = stroke_buff[stroke_buff.length - 1];
+                                    let line_arr = make_line_from_points(last_stroke.x, last_stroke.y, vec.x, vec.y);
+                                    stroke_from_arr(line_arr);
+                                    end_stroke();
+                                    performing_stroke = true;
+                                    left_canvas_while_performing_stroke = true;
+                                    break;
+                                case (tool.line) :
+                                    left_canvas_while_performing_stroke = true;
+                                    tracking_function = setInterval(() => {
+                                        line_tool_track_out_of_canvas();
+                                    }, 50);
+                                    break;
+                            }
                         }
                     });
 
 document.addEventListener("mouseup", 
-                    function() {
-                        left_canvas_while_performing_stroke = false;
-                        if (performing_stroke && (using.tool == tool.pencil || using.tool == tool.brush)) {
-                            end_stroke();
-                        }
+                    (e) => {
+                        handle_global_mouseup(e);
                     });
 
 // ===== EVENT_LISTENERS =====
