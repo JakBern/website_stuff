@@ -26,6 +26,7 @@ body.bg {
 
 .expand_box_horizontal_text {
     text-wrap: nowrap;
+    overflow: hidden;
     background-color: rgb(73, 73, 73);
     color: aqua;
     border: solid 0.2em rgb(48, 48, 48);
