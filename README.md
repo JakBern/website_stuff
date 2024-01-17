@@ -17,9 +17,18 @@ Double clicking will place a node. The node can then be dragged around the page 
 8 nodes can be created. Pressing the "z" key will toggle the lightning animation, which makes lightning (squiggly lines) arc between each node.
 
 ### ASCII Map Editor
-This is work in progress project which allows the design and viewing of 128 x 128 maps of ASCII (and Unicode) characters for roguelike games.
-Currently, the only working tools are the pencil, fill, and select.
+This is work in progress project which allows the design and viewing of 128 x 128 maps of ASCII (and Unicode) characters for roguelike games. Only some of the tools are working and currently do not have their full functionality.
 The palette and tileset features are currently fully functional. An example tileset can be downloaded [here.](default.tileset) Upload this file after clicking the "Load tileset" button to use it.
+#### Working tools
+- Select \[placeholder functionality]
+- Pencil \[Fully functional]
+- Rect \[Base functionality]
+- Circle \[Base functionality]
+- Line \[Base functionality]
+- Fill \[Base functionality (fixed from previous version)]
+- Color Dropper \[Fullly functional, needs instructions (Ctrl click to set character color)]
+- Char Dropper \[Fully functional]
+- Tile Dropper \[Fully functional]
 #### Notes on Changing Colors
 The color currently being used for the background color of each tile or the character color can be changed by clicking on the "bg" or "ch" tiles under the "Using" bar on the left, after which they will become italicized. You can then change the color by clicking on a swatch on the palette or by using the "Set Color" button with the eyedropper tool on the right set or a hexcode (preceded by a hash) entered. Entering a hexcode overrides the eyedropper/color picker's choice. The "a" and "d" keys act as hotkeys for the background (bg) and character (ch) color selectors, respectively.
 #### Notes on Custom Palettes
