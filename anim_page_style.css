@@ -44,13 +44,11 @@ body.bg {
 }
 
 .expand_box_horizontal_text_inner.opened {
-    display: inline-flex;
     width: 30em;
     transition: width 1s;
 }
 
 .expand_box_horizontal_text_inner.closed {
-    display: inline-flex;
     width:0em;
     transition: width 1s;
     overflow: hidden;
