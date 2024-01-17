@@ -26,7 +26,6 @@ body.bg {
 
 .expand_box_horizontal_text {
     text-wrap: nowrap;
-    overflow: hidden;
     background-color: rgb(73, 73, 73);
     color: aqua;
     border: solid 0.2em rgb(48, 48, 48);
@@ -38,19 +37,20 @@ body.bg {
 }
 
 .expand_box_horizontal_text_inner {
-    display: inline-block;
+    display: inline-flex;
     text-wrap: nowrap;
     color: aqua;
     overflow: hidden;
 }
 
 .expand_box_horizontal_text_inner.opened {
+    max-width: auto;
     width: 30em;
     transition: width 1s;
 }
 
 .expand_box_horizontal_text_inner.closed {
-    max-width:0em;
+    width: 0em;
     transition: width 1s;
     overflow: hidden;
 }
