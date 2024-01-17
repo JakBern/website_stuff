@@ -29,6 +29,7 @@ The palette and tileset features are currently fully functional. An example tile
 - Color Dropper \[Fullly functional, needs instructions (Ctrl click to set character color)]
 - Char Dropper \[Fully functional]
 - Tile Dropper \[Fully functional]
+- Undo/Redo \[Fully functional (Use ctrl-z and ctrl-y)]
 #### Notes on Changing Colors
 The color currently being used for the background color of each tile or the character color can be changed by clicking on the "bg" or "ch" tiles under the "Using" bar on the left, after which they will become italicized. You can then change the color by clicking on a swatch on the palette or by using the "Set Color" button with the eyedropper tool on the right set or a hexcode (preceded by a hash) entered. Entering a hexcode overrides the eyedropper/color picker's choice. The "a" and "d" keys act as hotkeys for the background (bg) and character (ch) color selectors, respectively.
 #### Notes on Custom Palettes
