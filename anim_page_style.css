@@ -50,7 +50,7 @@ body.bg {
 }
 
 .expand_box_horizontal_text_inner.closed {
-    width:0em;
+    max-width:0em;
     transition: width 1s;
     overflow: hidden;
 }
