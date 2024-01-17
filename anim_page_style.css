@@ -38,6 +38,7 @@ body.bg {
 }
 
 .expand_box_horizontal_text_inner {
+    display: inline-block;
     text-wrap: nowrap;
     color: aqua;
     overflow: hidden;
