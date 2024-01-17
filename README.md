@@ -20,7 +20,7 @@ Double clicking will place a node. The node can then be dragged around the page 
 This is work in progress project which allows the design and viewing of 128 x 128 maps of ASCII (and Unicode) characters for roguelike games. Only some of the tools are working and currently do not have their full functionality.
 The palette and tileset features are currently fully functional. An example tileset can be downloaded [here.](default.tileset) Upload this file after clicking the "Load tileset" button to use it.
 #### Working tools
-- Select \[placeholder functionality]
+- Select \[Placeholder functionality]
 - Pencil \[Fully functional]
 - Rect \[Base functionality]
 - Circle \[Base functionality]
