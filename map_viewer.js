@@ -129,6 +129,11 @@ const using_color_cell = {
     char: 2
 };
 
+const brush = {
+    circle: 0,
+    rect: 1
+};
+
 // ===== ENUMS =====
 
 
@@ -143,7 +148,7 @@ const using = {
     bg_color: "rgb(255, 255, 255)",
     bg_color_cell: document.getElementById("UsedBGColor"),
     char_color_cell: document.getElementById("UsedCharColor"),
-    char_cell: document.getElementById("UsedChar")
+    char_cell: document.getElementById("UsedChar"),
 };
 
 const selected = {
@@ -158,6 +163,7 @@ const selected = {
 
 const tool_settings = {
     brush_thickness: 1,
+    brush_type: brush.rect,
     rect_fill: false,
     rect_thickness: 1,
     circle_fill: false,
@@ -165,7 +171,7 @@ const tool_settings = {
     line_thickness: 1,
     curve_thickness: 1,
     fill_eightway: false,
-    zoom_percent: 100,
+    zoom: 1,
     zoom_pan_x: 0,
     zoom_pan_y: 0,
 }
@@ -244,6 +250,9 @@ let performing_stroke = false;
 let left_canvas_while_performing_stroke = false;
 
 let tracking_function = null;
+
+let brush_outline_arr = [];
+let brush_arr = [];
 
 // ===== GLOBALS =====
 
@@ -352,6 +361,12 @@ function handle_global_keydown(e) {
             case "d":
                 toggle_using_char_color_cell();
                 break;
+            case "[":
+                decrease_brush_width();
+                break;
+            case "]":
+                increase_brush_width();
+                break;
         }
     }
 }
@@ -374,6 +389,9 @@ function set_frame_size() {
     font_size = (canvas_width / canvas_cols);
     frame.style.fontSize = font_size * 0.8 + "px";
     root.style.setProperty('--cell_size', font_size * 0.99 + "px");
+    if (tool_settings.zoom != 1) {
+        adjust_zoom();
+    }
 }
 
 function get_tile_coords_closest_to_point(x, y) {
@@ -396,7 +414,42 @@ function get_tile_coords_closest_to_point(x, y) {
     return closest_vec;
 }
 
+function get_tile_coords_from_anywhere(x, y) {
+    let point = new Vec2(x, y);
+    let top_left = canvas.display_arr[0][0].getBoundingClientRect();
+    top_left = new Vec2(top_left.x, top_left.y);
+    let bottom_right = canvas.display_arr[canvas_rows - 1][canvas_cols - 1].getBoundingClientRect();
+    bottom_right = new Vec2(bottom_right.right, bottom_right.bottom);
+    let span_x = bottom_right.x - top_left.x;
+    let span_y = bottom_right.y - top_left.y;
+    let cursor_span_x = point.x - top_left.x;
+    let cursor_span_y = point.y - top_left.y;
+    let closest_x = Math.floor((cursor_span_x / span_x) * canvas_rows);
+    let closest_y = Math.floor((cursor_span_y / span_y) * canvas_cols);
+    closest_x = (closest_x == canvas_cols) ? closest_x - 1 : closest_x;
+    closest_y = (closest_y == canvas_rows) ? closest_y - 1 : closest_y;
+    let closest_vec = new Vec2(closest_x, closest_y);
+    return closest_vec;
+}
+
 // ===== WINDOW_AND_CANVAS_FUNCTIONS =====
+
+
+// ===== ZOOM_FUNCTIONS =====
+
+function set_zoom_parameters(zoom_factor, x, y) {
+    tool_settings.zoom = zoom_factor;
+    tool_settings.zoom_pan_x = x;
+    tool_settings.zoom_pan_y = y;
+}
+
+function adjust_zoom() {
+    root.style.setProperty('--zoom', tool_settings.zoom);
+    root.style.setProperty('--pan-x', tool_settings.zoom_pan_x + "px");
+    root.style.setProperty('--pan-y', tool_settings.zoom_pan_y + "px");
+}
+
+// ===== ZOOM_FUNCTIONS =====
 
 
 // ===== UNDO_REDO_FUNCTIONS =====
@@ -439,15 +492,10 @@ function perform_redo() {
 // ===== BASIC_DRAWING_FUNCTIONS =====
 
 function canvas_draw_temp(x, y, char, bg_color, char_color) {
-    let from = new DisplayFragment(canvas.display_arr[y][x].innerHTML,
-            canvas.display_arr[y][x].style.backgroundColor,
-            canvas.display_arr[y][x].style.color );
-    let to = new DisplayFragment(char, bg_color, char_color);
-    let action = new HistoryFragment(x, y, from, to);
     canvas.display_arr[y][x].innerHTML = char;
     canvas.display_arr[y][x].style.color = char_color;
     canvas.display_arr[y][x].style.backgroundColor = bg_color;
-    temp_draw_buff.push(action);
+    temp_draw_buff.push(new Vec2(x, y));
 }
 
 function canvas_draw_temp_from_vec_arr_with_using(arr) {
@@ -460,9 +508,9 @@ function remove_temp_drawing() {
     for (let i = temp_draw_buff.length - 1; i >= 0; i--) {
         canvas_draw_display(temp_draw_buff[i].x, 
             temp_draw_buff[i].y, 
-            temp_draw_buff[i].from.char, 
-            temp_draw_buff[i].from.bg_color, 
-            temp_draw_buff[i].from.char_color);
+            canvas.tile_arr[temp_draw_buff[i].y][temp_draw_buff[i].x].char, 
+            ((canvas.tile_arr[temp_draw_buff[i].y][temp_draw_buff[i].x].tint.bg_color === null) ? canvas.tile_arr[temp_draw_buff[i].y][temp_draw_buff[i].x].bg_color : canvas.tile_arr[temp_draw_buff[i].y][temp_draw_buff[i].x].tint.bg_color ), 
+            ((canvas.tile_arr[temp_draw_buff[i].y][temp_draw_buff[i].x].tint.char_color === null) ? canvas.tile_arr[temp_draw_buff[i].y][temp_draw_buff[i].x].char_color : canvas.tile_arr[temp_draw_buff[i].y][temp_draw_buff[i].x].tint.char_color ));
     }
     temp_draw_buff.length = 0;
 }
@@ -484,6 +532,9 @@ function begin_stroke() {
 }
 
 function add_to_stroke(x, y) {
+    if (!in_canvas_bounds(x, y)) {
+        return;
+    }
     let from = new TileAndDisplay(canvas.tile_arr[y][x], 
         canvas.display_arr[y][x].innerHTML,
         canvas.display_arr[y][x].style.backgroundColor,
@@ -522,6 +573,7 @@ function end_stroke() {
 
 // ===== LINE_AND_SHAPE_FUNCTIONS =====
 
+// Taken from https://zingl.github.io/bresenham.html
 function make_line_from_points(x0, y0, x1, y1) {
     let line_points = [];
 
@@ -557,6 +609,7 @@ function span_fill_is_inside(x, y, base_tile) {
     return tiles_equal(canvas.tile_arr[y][x], base_tile);
 }
 
+// Taken from Graphics Gems vol I Seed Fill Algorithm
 function span_fill(x, y, base_tile) {
     if (tiles_equal(base_tile, using.tile)) {
         return;
@@ -570,8 +623,6 @@ function span_fill(x, y, base_tile) {
     seed_stack.push([x, x, y + 1, -1]);
     let skip = false;
     let start;
-    // seed_stack.push([x, x + 1, y, 1]);
-    // seed_stack.push([x, x + 1, y - 1, -1]);
     while (seed_stack.length > 0) {
         skip = false;
         let cur = seed_stack.pop();
@@ -632,6 +683,7 @@ function make_box_from_points(x0, y0, x1, y1) {
     return box_arr;
 }
 
+// taken from https://zingl.github.io/bresenham.html
 function make_circle_from_points(x0, y0, x1, y1) {
     let xm = Math.floor((x0 + x1) / 2);
     let ym = Math.floor((y0 + y1) / 2);
@@ -662,19 +714,245 @@ function make_ellipse_from_points(x0, y0, x1, y1) {
     
 }
 
+// taken from http://members.chello.at/~easyfilter/Bresenham.pdf
+function make_quadratic_bezier_segment_from_points(x0, y0, x1, y1, x2, y2) {
+    let arr = [];
+    let sx = x2-x1, sy = y2-y1;
+    let xx = x0-x1, yy = y0-y1, xy; /* relative values for checks */
+    let dx, dy, err, cur = xx*sy-yy*sx; /* curvature */
+    if (sx*sx+sy*sy > xx*xx+yy*yy) { /* begin with longer part */
+        x2 = x0; x0 = sx+x1; y2 = y0; y0 = sy+y1; cur = -cur; /* swap P0 P2 */
+    }
+    if (cur != 0) { /* no straight line */
+        xx += sx; xx *= sx = x0 < x2 ? 1 : -1; /* x step direction */
+        yy += sy; yy *= sy = y0 < y2 ? 1 : -1; /* y step direction */
+        xy = 2*xx*yy; xx *= xx; yy *= yy; /* differences 2nd degree */
+    if (cur*sx*sy < 0) { /* negated curvature? */
+        xx = -xx; yy = -yy; xy = -xy; cur = -cur;
+    }
+        dx = 4.0*sy*cur*(x1-x0)+xx-xy; /* differences 1st degree */
+        dy = 4.0*sx*cur*(y0-y1)+yy-xy;
+        xx += xx; yy += yy; err = dx+dy+xy; /* error 1st step */
+    do {
+        arr.push(new Vec2(x0, y0)); /* plot curve */
+        if (x0 == x2 && y0 == y2) return arr; /* last pixel -> curve finished */
+        y1 = 2*err < dx; /* save value for test of y step */
+        if (2*err > dy) { x0 += sx; dx -= xy; err += dy += yy; } /* x step */
+        if ( y1 ) { y0 += sy; dy -= xy; err += dx += xx; } /* y step */
+    } while (dy < 0 && dx > 0); /* gradient negates -> algorithm fails */
+    }
+    arr = arr.concat(make_line_from_points(x0,y0, x2,y2));
+    return arr;
+}
+
+// taken from http://members.chello.at/~easyfilter/Bresenham.pdf
+function make_quadratic_bezier_from_vecs(start, ctrl, stop) {
+    let arr = [];
+    let x0 = start.x, y0 = start.y;
+    let x1 = ctrl.x, y1 = ctrl.y;
+    let x2 = stop.x, y2 = stop.y;
+    let x = x0 - x1, y = y0 - y1;
+    let t = x0 - 2 * x1 + x2, r;
+    if (x * (x2 - x1) > 0) { /* horizontal cut at P4? */
+        if (y * (y2 - y1) > 0) /* vertical cut at P6 too? */
+            if (Math.abs((y0 - 2 * y1 + y2) / t * x) > Math.abs(y)) { /* which first? */
+                x0 = x2; x2 = x + x1; y0 = y2; y2 = y+y1; /* swap points */
+            } /* now horizontal cut at P4 comes first */
+        t = (x0-x1)/t;
+        r = (1 - t) * ((1-t)*y0+2.0*t*y1)+t*t*y2; /* By(t=P4) */
+        t = (x0*x2-x1*x1)*t/(x0-x1); /* gradient dP4/dx=0 */
+        x = Math.floor(t + 0.5); y = Math.floor( r + 0.5);
+        r = (y1 - y0)*(t-x0)/(x1-x0)+y0; /* intersect P3 | P0 P1 */
+        arr = arr.concat(make_quadratic_bezier_segment_from_points(x0,y0, x, Math.floor(r+0.5), x, y));
+        r = (y1-y2)*(t-x2)/(x1-x2)+y2; /* intersect P4 | P1 P2 */
+        x0 = x1 = x; y0 = y; y1 = Math.floor(r+0.5); /* P0 = P4, P1 = P8 */
+    }
+    if ((y0 - y1) * (y2 - y1) > 0) { /* vertical cut at P6? */
+        t = y0 - 2 * y1 + y2; t = (y0 - y1) / t;
+        r = (1 - t) * ((1 - t) * x0 + 2.0 * t * x1)+ t * t * x2; /* Bx(t=P6) */
+        t = (y0 * y2 - y1 * y1) * t / (y0 - y1) ; /* gradient dP6/dy=0 */
+        x = Math.floor(r + 0.5); y = Math.floor(t+0.5);
+        r = (x1 - x0) * (t - y0) / (y1 - y0) + x0; /* intersect P6 | P0 P1 */
+        arr = arr.concat(make_quadratic_bezier_segment_from_points(x0, y0, Math.floor(r + 0.5), y, x, y));
+        r = (x1 - x2) * (t - y2) / (y1 - y2) + x2; /* intersect P7 | P1 P2 */
+        x0 = x; x1 = Math.floor(r + 0.5); y0 = y1 = y; /* P0 = P6, P1 = P7 */
+    }
+    arr = arr.concat(make_quadratic_bezier_segment_from_points(x0, y0, x1, y1, x2, y2)); /* remaining part */
+    return arr;
+}
+
+function fill_shape_from_arr(arr) {
+    let y_level_x_values = new Map();
+    let y_levels = [];
+    let fill_spaces = [];
+    for (let i = 0; i < arr.length; i++) {
+        if (y_level_x_values.get(arr[i].y) === undefined) {
+            y_level_x_values.set(arr[i].y, [arr[i].x]);
+            y_levels.push(arr[i].y);
+        }
+        else {
+            y_level_x_values.get(arr[i].y).push(arr[i].x);
+        }
+    }
+    for (let i = 0; i < y_levels.length; i++) {
+        let cur_y_val_arr = y_level_x_values.get(y_levels[i]);
+        cur_y_val_arr.sort((a, b) => a.x - b.x);
+        let cur_y = y_levels[i];
+        for (j = 0; j < cur_y_val_arr.length- 1; j += 2) {
+            for (let k = cur_y_val_arr[j] + 1; k < cur_y_val_arr[j + 1]; k++) {
+                fill_spaces.push(new Vec2(k, cur_y));
+            }
+        }
+    }
+    return fill_spaces;
+}
+
+function make_thick_line_from_points(x0, y0, x1, y1, thickness) {
+    let start_points = [];
+    let down_steps = Math.floor(thickness / 2);
+    let up_steps = Math.ceil(thickness / 2);
+
+    let line_points = [];
+
+    let dx = Math.abs(x1 - x0);
+    let sx = x0 < x1 ? 1 : -1;
+    let dy = -Math.abs(y1 - y0);
+    let sy = y0 < y1 ? 1 : -1;
+    let error = dx + dy;
+    let e2;
+
+    let odx = -dy;
+    let osx = -sx;
+    let ody = -dx;
+    let osy = -sy;
+    let oerror = odx + ody;
+
+    let ox = x0;
+    let oy = y0;
+    
+    start_points.push(new Vec2(ox, oy));
+
+    for (let i = 0; i < up_steps; i++) {
+        start_points.push(new Vec2(ox, oy));
+        e2 = 2 * oerror;
+        if (e2 >= dy) {
+            error = error + dy;
+            x0 = x0 + sx;
+        }
+        if (e2 <= dx) {
+            error = error + dx;
+            y0 = y0 + sy;
+        }
+    }
+
+    osx = -osx;
+
+    for (let i = 0; i < down_steps; i++) {
+        start_points.push(new Vec2(ox, oy));
+        e2 = 2 * oerror;
+        if (e2 >= dy) {
+            error = error + dy;
+            x0 = x0 + sx;
+        }
+        if (e2 <= dx) {
+            error = error + dx;
+            y0 = y0 + sy;
+        }
+    }
+
+    return line_points;
+}
+
 // ===== LINE_AND_SHAPE_FUNCTIONS =====
 
 
-// ===== GEOMETRY_FUNCTIONS =====
+// ===== BRUSH_FUNCTIONS =====
+
+function make_brush_outline() {
+    let arr = null;
+    switch (using.brush_type) {
+        case brush.rect  :
+            let ul = -Math.floor(using.brush_thickness / 2);
+            let br = Math.ceil(using.brush_thickness / 2)
+            return make_box_from_points(ul,ul,br,br);
+        case brush.circle:
+            if (using.brush_thickness == 1) {
+                return [new Vec2(0, 0)];
+            }
+            let r = using.brush_thickness - 1;
+            return make_circle_from_points(-r, -r, r, r);
+    }
+}
+
+function increase_brush_width() {
+    switch (using.tool) {
+        case tool.brush:
+            tool_settings.brush_thickness = Math.min(tool_settings.brush_thickness + 1, 64);
+            break;
+        case tool.line :
+            tool_settings.line_thickness = Math.min(tool_settings.line_thickness + 1, 64); 
+            break;
+        case tool.curve:
+            tool_settings.curve_thickness = Math.min(tool_settings.curve_thickness + 1, 64);
+            break;
+        case tool.rect:
+            tool_settings.rect_thickness = Math.min(tool_settings.rect_thickness + 1, 64);
+            break;
+        case tool.circle:
+            tool_settings.circle_thickness = Math.min(tool_settings.circle_thickness + 1, 64);
+            break;
+    }
+}
+
+function decrease_brush_width() {
+    switch (using.tool) {
+        case tool.brush:
+            tool_settings.brush_thickness = Math.max(tool_settings.brush_thickness - 1, 1);
+            break;
+        case tool.line :
+            tool_settings.line_thickness = Math.max(tool_settings.line_thickness - 1, 1); 
+            break;
+        case tool.curve:
+            tool_settings.curve_thickness = Math.max(tool_settings.curve_thickness - 1, 1);
+            break;
+        case tool.rect:
+            tool_settings.rect_thickness = Math.max(tool_settings.rect_thickness - 1, 1);
+            break;
+        case tool.circle:
+            tool_settings.circle_thickness = Math.max(tool_settings.circle_thickness - 1, 1);
+            break;
+    }
+}
+
+// ===== BRUSH_FUNCTIONS =====
+
+
+// ===== GEOMETRY_CALCULATION_FUNCTIONS =====
 
 function is_connected(x0, y0, x1, y1) {
     return (Math.abs(x1 - x0) <= 1 && Math.abs(y1 - y0) <= 1);
 }
 
-// ===== GEOMETRY_FUNCTIONS =====
+function in_bounds(x, one, two) {
+    return (one <= x && x <= two) || (two <= x && x <= one);
+}
+
+function snap_to_closest(x, one, two) {
+    return (Math.abs(x - one) < Math.abs(x - two)) ? one : two;
+}
+
+function dist_x(vec1, vec2) {
+    return Math.abs(vec1.x - vec2.x);
+}
+
+function dist_y(vec1, vec2) {
+    return Math.abs(vec1.y - vec2.y);
+}
+
+// ===== GEOMETRY_CALCULATION_FUNCTIONS =====
 
 
-// ===== TOOL_SETTING_FUNCTIONS =====
+// ===== TOOL_SWITCHING_FUNCTIONS =====
 
 function toggle_using_bg_color_cell() {
     if (using.color_cell !== using_color_cell.bg) {
@@ -701,6 +979,12 @@ function toggle_using_char_color_cell() {
 }
 
 function tool_switch(tool_code) {
+
+    end_stroke();
+    remove_temp_drawing();
+    anchor_points.length = 0;
+    clearInterval(tracking_function);
+
     switch(tool_code) {
 
         case tool.select:
@@ -716,6 +1000,10 @@ function tool_switch(tool_code) {
         case tool.brush:
             document.getElementById("tool_button_brush").classList.toggle("tool_button_left_selected");
             using.tool = tool.brush;
+            if (brush_arr.length == 0) {
+                brush_outline_arr = make_brush_outline();
+                brush_arr = fill_shape_from_arr(brush_outline_arr);
+            }
             break;
 
         case tool.rect:
@@ -775,7 +1063,7 @@ function set_using_tool(tool_code) {
     }
 }
 
-// ===== TOOL_SETTING_FUNCTIONS =====
+// ===== TOOL_SWITCHING_FUNCTIONS =====
 
 // ===== TOOL_CLICK_FUNCTIONS =====
 
@@ -809,7 +1097,7 @@ function pencil_tool_click(i, j, e) {
 }
 
 function brush_tool_click(i, j, e) {
-    
+
 }
 
 function rect_tool_click(i, j, e) {
@@ -908,7 +1196,42 @@ function line_tool_track_out_of_canvas() {
 }
 
 function curve_tool_click(i, j, e) {
-    
+    if (e.type == "mousedown") {
+        switch (anchor_points.length) {
+            case 0:
+                begin_stroke();
+                anchor_points.push(new Vec2(j, i));
+                canvas_draw_temp_from_vec_arr_with_using(anchor_points);
+                return;
+            case 1:
+                remove_temp_drawing();
+                anchor_points.push(new Vec2(j, i));
+                let temp_curve = make_quadratic_bezier_from_vecs(anchor_points[0], new Vec2(j, i), anchor_points[1]);
+                canvas_draw_temp_from_vec_arr_with_using(temp_curve);
+                return;
+            case 2:
+                remove_temp_drawing();
+                let curve_arr = make_quadratic_bezier_from_vecs(anchor_points[0], new Vec2(j, i), anchor_points[1]);
+                stroke_from_arr(curve_arr);
+                end_stroke();
+                anchor_points.length = 0;
+                return;
+        }
+    }
+    if (e.type == "mouseover") {
+        switch (anchor_points.length) {
+            case 1:
+                remove_temp_drawing();
+                let temp_line = make_line_from_points(anchor_points[0].x, anchor_points[0].y, j, i);
+                canvas_draw_temp_from_vec_arr_with_using(temp_line);
+                return;
+            case 2:
+                remove_temp_drawing();
+                let temp_curve = make_quadratic_bezier_from_vecs(anchor_points[0], new Vec2(j, i), anchor_points[1]);
+                canvas_draw_temp_from_vec_arr_with_using(temp_curve);
+                return;
+        }
+    }
 }
 
 function fill_tool_click(i, j, e) {
@@ -919,7 +1242,32 @@ function fill_tool_click(i, j, e) {
 }
 
 function zoom_tool_click(i, j, e) {
-    
+    if (e.type == "mouseup" && !performing_stroke) {
+        if (e.ctrlKey) {
+            tool_settings.zoom -= 0.25;
+        }
+        else {
+            tool_settings.zoom += 0.25;
+        }
+        adjust_zoom();
+        return;
+    }
+    if (e.type == "mousedown" && e.shiftKey && !performing_stroke) {
+        performing_stroke = true;
+        anchor_points.push(new Vec2(e.clientX, e.clientY));
+        document.onmousemove = (e) => {window.requestAnimationFrame(handle_panning(e))};
+    }
+}
+
+function handle_panning(e) {
+
+    let delta_x = e.clientX - anchor_points[0].x;
+    let delta_y = e.clientY - anchor_points[0].y;
+    tool_settings.zoom_pan_x += (delta_x * (1 / tool_settings.zoom));
+    tool_settings.zoom_pan_y += (delta_y * (1 / tool_settings.zoom));
+    anchor_points[0].x += delta_x;
+    anchor_points[0].y += delta_y;
+    adjust_zoom();
 }
 
 function color_dropper_tool_click(i, j, e) {
@@ -930,7 +1278,7 @@ function color_dropper_tool_click(i, j, e) {
             using.char_color_cell.style.backgroundColor = using.char_color;
             using.tile = clone_tile(using.tile);
             using.tile.tint.char_color = color;
-            using.char_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.char_color);
+            using.char_color_cell.querySelector(".used_value_cell_color_text").innerHTML = (using.char_color[0] == "#") ? using.char_color : rgb_to_hex(using.char_color);
             return;
         }
         let color = getComputedStyle(canvas.display_arr[i][j]).backgroundColor;
@@ -938,7 +1286,7 @@ function color_dropper_tool_click(i, j, e) {
         using.bg_color_cell.style.backgroundColor = using.bg_color;
         using.tile = clone_tile(using.tile);
         using.tile.tint.bg_color = color;
-        using.bg_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.bg_color);
+        using.bg_color_cell.querySelector(".used_value_cell_color_text").innerHTML = (using.bg_color[0] == "#") ? using.bg_color : rgb_to_hex(using.bg_color);
         return;
     }
 }
@@ -959,8 +1307,8 @@ function tile_dropper_tool_click(i, j, e) {
         using.char_color = (using.tile.tint.char_color === null) ? using.tile.char_color : using.tile.tint.char_color;
         using.bg_color_cell.style.backgroundColor = using.bg_color;
         using.char_color_cell.style.backgroundColor = using.char_color;
-        using.char_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.char_color);
-        using.bg_color_cell.querySelector(".used_value_cell_color_text").innerHTML = rgb_to_hex(using.bg_color);
+        using.char_color_cell.querySelector(".used_value_cell_color_text").innerHTML = (using.char_color[0] == "#") ? using.char_color : rgb_to_hex(using.char_color);
+        using.bg_color_cell.querySelector(".used_value_cell_color_text").innerHTML = (using.bg_color[0] == "#") ? using.bg_color : rgb_to_hex(using.bg_color);
     }
 }
 
@@ -983,6 +1331,14 @@ function handle_global_mouseup(e) {
                 end_stroke();
                 anchor_points.length = 0;
                 break;
+            case (tool.zoom)  :
+                if (performing_stroke) {
+                    performing_stroke = false;
+                    // clearInterval(tracking_function);
+                    // tracking_function = null;
+                    document.onmousemove = null;
+                    anchor_points.length = 0;
+                }
         }
     }
 }
@@ -1007,6 +1363,13 @@ function rgb_to_hex(rgb) {
     let g = Number(rgb[1]);
     let b = Number(rgb[2]);
     return "#" + component_to_hex(r) + component_to_hex(g) + component_to_hex(b);
+}
+
+function hex_to_rgb(hex) {
+    let r = Number("0x" + hex[1] + hex[2]);
+    let g = Number("0x" + hex[3] + hex[4]);
+    let b = Number("0x" + hex[3] + hex[4]);
+    return "rgb(" + r + "," + g + "," + b +")";
 }
 
 // end stolen stuff
@@ -1047,6 +1410,9 @@ function set_selected_tile_info(tile, canvas_cell) {
 }
 
 // ===== SELECTED_TILE_BAR_FUNCTIONS =====
+
+
+
 
 
 // ===== CANVAS_FUNCTIONS =====
@@ -1345,6 +1711,12 @@ function download_current_palette() {
 // ===== PALETTE_FUNCTIONS =====
 
 
+// ===== SVG_FUNCTIONS =====
+
+
+// ===== SVG_FUNCTIONS =====
+
+
 // ===== TILESET_FUNCTIONS =====
 
 function handle_tileset_swatch_click(tile) {
@@ -1477,7 +1849,7 @@ set_frame_size();
 // ===== INIT_ARRAYS =====
 
 for (let i = 0; i < canvas_rows; i++) {
-    let base_tile = new Tile(" ", "Space", "rgb(255, 255, 255)", "rgb(0, 0, 0)");
+    let base_tile = new Tile("&nbsp;", "Space", "rgb(255, 255, 255)", "rgb(0, 0, 0)");
     let cur_row = document.createElement("tr");
     frame.appendChild(cur_row);
     let display_arr_row = [];
